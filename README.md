@@ -1,50 +1,53 @@
 # Kenya-Children-5-Years-Health-Exploratory-Data-Analysis
 This repository contains an RMarkdown script for conducting an exploratory data analysis (EDA) on a dataset related to children under 5 years of age in Kenya. The dataset includes monthly data, disaggregated at a county level, covering the period from January 2021 to June 2023. The dataset contains information on various health indicators for children, including the total number of children dewormed, cases of acute malnutrition, stunting, diarrhea, and underweight children.
 
-# Child Health Data Analysis - Kenya
+### Introduction
 
-## Overview
-This repository contains an RMarkdown script for analyzing child health data in Kenya. The dataset consists of monthly data for children under 5 years, disaggregated at a county level, spanning from January 2021 to June 2023. The dataset includes various health indicators, such as the total number of children dewormed, cases of acute malnutrition, stunting, diarrhea, and underweight children.
-
-## Data Description
-The dataset comprises the following variables:
+The dataset includes the following variables:
 - Period (months from January 2021 to June 2023)
-- County (the 47 counties in Kenya)
+- County (representing the 47 counties in Kenya)
 - Total number of children dewormed (Total Dewormed)
-- Number of children <5 years with acute malnutrition (Acute Malnutrition)
-- Number of children stunted (categorized by age: 0-6 months, 6-23 months, 24-59 months)
-- Number of children <5 years with diarrhea (Diarrhea cases)
-- Number of children who are underweight (categorized by age: 0-6 months, 6-23 months, 24-59 months)
+- Number of children under 5 years with acute malnutrition (Acute Malnutrition)
+- Number of children stunted in different age groups (0-6 months, 6-23 months, 24-59 months)
+- Number of children under 5 years with diarrhea (Diarrhea cases)
+- Number of underweight children in different age groups (0-6 months, 6-23 months, 24-59 months)
 
-## Tasks
-Your primary tasks include:
-1. Conducting exploratory data analysis (EDA) on the provided dataset.
-2. Formulating an appropriate research question based on your EDA.
-3. Carrying out relevant data analysis to address your research question.
+Before formulating our research question, I start by exploring the dataset.
 
-## Data Sources
-- The primary dataset is provided in the "data" folder.
-- Population data from the 2019 Kenya Census is included using the "rKenyaCensus" R package.
+### Data Loading and Exploration
 
-## Running the Analysis
-1. Make sure you have R and RStudio installed on your system.
-2. Install the required R packages mentioned in the RMarkdown script.
-3. Run the RMarkdown script to perform data analysis.
+I imported various R packages for data analysis and loaded the dataset from a provided link. The data initially had 1,410 observations and 11 variables.
 
-## Visualizations
-The analysis includes various visualizations, such as line plots, choropleth maps, and histograms, to help you explore and understand the data effectively.
+I performed data cleaning, such as combining stunting and underweight columns and formatting the date column. I also removed redundant words from the county names and handled missing values appropriately.
 
-## Research Question
-The research question addressed in this analysis is: "What are the factors associated with the coverage of deworming in Kenya?"
+### Descriptive Statistics
 
-## Results
-The analysis provides insights into the factors associated with deworming coverage in Kenya, highlighting the impact of stunting and diarrhea cases. It suggests a potential need for targeted interventions in specific regions.
+I computed descriptive statistics for the dataset, focusing on the average number of cases reported and treatments administered among children under 5 years in Kenya from 2021 to 2023. This analysis provided insights into the trends and patterns of health syndromes and deworming.
 
-## Folder Structure
-- `data`: Contains the primary dataset.
-- `shapefiles`: Includes shapefiles for generating choropleth maps.
-- `README.md`: This file providing an overview of the repository.
-- `child_health_analysis.Rmd`: The RMarkdown script containing the data analysis.
+### Data Visualization
+
+I visualized the data to showcase trends in the average number of reported cases per month and the deworming data. Using line and point graphs, I highlighted the increasing trends in reported cases of diarrhea, stunting, underweight, and children dewormed.
+
+I also created a choropleth map to illustrate the prevalence of various malnutrition conditions across Kenyan counties. This interactive map allows users to explore health indicators at the county level.
+
+### Research Question
+
+Based on our exploratory data analysis, I formulated our research question: "What are the factors associated with the coverage of deworming in Kenya?" To answer this question, I used a mixed-effects model.
+
+To prepare for the modeling, I incorporated population data to calculate the coverage of deworming per 100,000 children and the incidence of cases per 100,000 children under 5 years.
+
+### Statistical Modeling
+
+I began by checking the skewness of our outcome variable (coverage of deworming) using a histogram. The data appeared skewed, so I opted for a negative binomial model.
+
+I conducted univariable model analyses, assessing the association between the coverage of deworming and each independent variable (diarrhea cases, stunting, and underweight) separately. These univariable models guided us in selecting variables for the multivariable model.
+
+In the multivariable model, I included all three independent variables. The results showed that coverage of deworming was weakly associated with an increased risk of stunted cases per 100,000 children and a decreased risk of diarrhea cases per 100,000 children. There was no significant association with underweight cases.
+
+These findings provide insights into the factors influencing deworming coverage in Kenya.
+
+Please feel free to explore the code and analysis in this repository for a detailed understanding of the research.
+
 
 ## Contact
 For any inquiries or further information, please feel free to contact:
@@ -52,5 +55,4 @@ For any inquiries or further information, please feel free to contact:
 - Email: rasmodev@gmail.com
 - LinkedIn: https://www.linkedin.com/in/rasmo-/
 
-We hope this analysis provides valuable insights into child health in Kenya.
-
+I hope this analysis provides valuable insights.
