@@ -13,8 +13,6 @@ toc: false
 knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
 ```
 
-
-
 # Introduction
 
 We have been given a dataset which contains monthly data for children <5 years, disaggregated at a county level for the period January 2021 to June 2023.
@@ -35,15 +33,16 @@ We would like to first explore the data before we formulate a research question.
 
 # Data Loading and Exploration
 
-The data was obtained from the link. The data initially contained 1,410 observations (rows) and 11 variables (columns). 
-
-
+We start by loading important libraries then obtaining the data from a CSV file.
 ```{r}
 ## There are two ways of importing packages- you can either use 'pacman' package which automatically installs the packages if they do not exist in the computer
 
 # Importing Packages
 library(pacman)
 p_load(
+  dplyr,
+  knitr,
+  kableExtr,
   tidyverse,
   scales,
   MASS,
@@ -55,18 +54,22 @@ p_load(
   corrplot,
   recipes,
   caret,
-  rKenyaCensus
 )
-
 
 
 # The second option of importing packages is using the library() or require() function
 library(tidyverse) # this is for importing several packages
 library(sf) # this is for importing spatial data (shapefiles)
 
-# Importing the data
-data <- read_csv("https://raw.githubusercontent.com/cema-uonbi/internship_task/main/data/cema_internship_task_2023.csv")
+# Reading the CSV file
+data <- read.csv("data/child_health_analysis.csv")
 
+# Overview of the dataset
+head(data)
+```
+```{r}
+# View the dataset
+View(data)
 ```
 
 The columns contain county level data on some health indicators for children below 5 years. Specifically,these are:
@@ -75,86 +78,159 @@ The columns contain county level data on some health indicators for children bel
 - Number of children stunted
 - Number of children underweight
 
-The first thing we need to do is combine the data on stunting and underweight into one column for children <5 years, and change the period column to a date:
+```{r}
+# Dimensions of the dataset
+dim(data)
+```
+The dataset contains 1410 rows and 11 columns.
+
+```{r}
+# Summary statistics
+summary(data)
+```
+
+To begin our analysis, the first thing we need to do is combine the data on stunting and underweight into one column for children <5 years, and change the period column to a date:
+
+```{r}
+# Calculate the sum of 'stunted' cases per row and store it in a new column named 'stunted'
+data <- data %>%
+  rowwise() %>%
+  mutate(stunted = sum(c_across(contains("stunted")), na.rm = TRUE)) %>%
+
+  # Calculate the sum of 'underweight' cases per row
+  # and store it in a new column named 'underweight'
+  mutate(underweight = sum(c_across(contains("Underweight")), na.rm = TRUE)) %>%
+
+  # Change the date format to one that R understands
+  mutate(period = my(period)) %>%
+
+  # Remove the redundant word "County" from the 'county' column
+  mutate(county = str_remove(county, "County")) %>%
+
+  # Remove leading and trailing white spaces from the 'county' column
+  mutate(county = trimws(county)) %>%
+
+  # Clean the column names using the janitor package
+  janitor::clean_names() %>%
+
+  # Select specific columns for analysis
+  dplyr::select(period, county, total_dewormed, acute_malnutrition, diarrhoea_cases, stunted, underweight) %>%
+
+  # Remove any row grouping that may exist
+  ungroup()
+
+```
+
+This code prepares the data for further analysis by consolidating information on stunting and underweight, formatting dates, and cleaning column names.
+
+Also, sometimes, conflicts arise when you have functions of the same name in different packages. To avoid this conflict I specified the package name before the function, such as janitor::clean_names()
+
+
+```{r missing values}
+
+# Checking for Missing Values in the Dataset
+
+# Calculate the number of missing values in each column
+missing_values_by_column <- colSums(is.na(data))
+
+# Calculate the percentage of missing values in each column (rounded to 2 decimal places)
+missing_values_percentage_by_column <- round((missing_values_by_column / nrow(data)) * 100, 2)
+
+# Create a DataFrame to store the results
+missing_values_summary <- data.frame(Column = names(missing_values_by_column),
+                                     Missing_Values = missing_values_by_column,
+                                     Percentage = paste(missing_values_percentage_by_column, "%"))
+# # Print the summary
+missing_values_summary
+```
+
+The "Acute Malnutrition" column has 355 missing values (NA) out of the 1,410 records accounting for 25.18%. This suggests that the data for acute malnutrition is incomplete for some counties or time periods.
+
+The columns "stunted 6-23 months," "stunted 0-<6 months," and "stunted 24-59 months" have 11 (0.78%), 19(1.35%), and 14(0.99%) missing values, respectively. This indicates that the data for stunted children is missing for certain counties or age groups.
+
+The "diarrhoea cases," "Underweight 0-<6 months," "Underweight 6-23 months," and "Underweight 24-59 Months" columns do not have any missing values. This implies that data is available for all counties and age groups in these columns.
 
 ```{r}
 
-combined_data <- data%>%
-  rowwise() %>%
-  mutate(stunted=sum(c_across(contains("stunted")),na.rm=T)) %>% # sum the stunted cases per row
-  mutate(underweight=sum(c_across(contains("Underweight")),na.rm=T)) %>% # sum the underweight cases per row
-  mutate(period=my(period)) %>% # change the date to a format that R understands
-  mutate(county=str_remove(county, "County")) %>% # remove the redundant word "County"
-  mutate(county=trimws(county))%>%  # remove white space
-  janitor::clean_names() %>% ## clean the column names
-  dplyr::select(period, county, total_dewormed, acute_malnutrition, diarrhoea_cases, stunted, underweight)%>%
-  ungroup() # remove the grouping by row
-
-# sometimes, conflicts happen when you have functions of the same name in different packages. There are many ways of avoiding the conflict. One of the ways is by specifying the package name before the function, such as janitor::clean_names()
-```
-
-
-## Missing Values
-
-Table \@ref(tab:table1) represents the total number of missing values per column of the data while figure \@ref(fig:figure1) represents a Missing Data Matrix plot. The variable representing the number of children with Acute malnutrition exhibited the most missing values, making it the variable with the highest data gaps. Following this, the variable concerning stunted growth in children aged 0 to 6 months had the second-highest number of missing values. 
-
-```{r table1}
-
-# This line of code sums up the number of observations that have missing values per column. 
-# Type ?is.na() in your console and read more about it.
-
-missing_counts <- colSums(is.na(combined_data))
-
-# We then create a dataframe with the number of missing values for every column, and arrange it in descending order
-columns_with_missing <- data.frame(Column = names(missing_counts[missing_counts > 0]),
-             Missing_Values = missing_counts[missing_counts > 0]) %>%
-  arrange(desc(Missing_Values)) %>%
-  rename("Missing values"="Missing_Values")
-
-# remove the column names
-row.names(columns_with_missing) <- c()
-
-# create a table to show the number of missing observations in every column (variable)
-knitr::kable(columns_with_missing, caption = "Number of missing values in each column") 
-
-```
-
-
-According to the table, only the variable "acute malnutrition" had 355 missing values. Further investigation revealed that certain counties had no records of Acute Malnutrition across the 30-month period (spanning from January 2021 to June 2023). Specifically, Elgeyo Marakwet, Kericho, and Lamu counties each had 30 missing values in the "Acute Malnutrition" variable, indicating a lack of data on Acute Malnutrition for these counties (Table \@ref(tab:table2)). Thus, imputing the missing values with measures like mean, median, or mode for this counties deemed impractical.
-
-
-```{r table2}
-
-combined_data  %>%
+# Calculate the number of missing values for 'Acute Malnutrition' per county
+missing_acute_malnutrition <- data %>%
   group_by(county) %>%
   summarize(Missing_Values = sum(is.na(acute_malnutrition))) %>%
-  arrange(desc(Missing_Values)) %>%
-  filter(Missing_Values > 10) %>%
-  kable(caption = "Counties with the leading missing values in Acute Malnutrition")
+  
+  # Filter out counties with zero missing values
+  filter(Missing_Values > 0) %>% 
+  
+  # Sort in descending order
+  arrange(desc(Missing_Values)) 
+
+# Add a title and format the table using kable
+missing_acute_malnutrition %>%
+  kable(caption = "Counties with Missing Values in Acute Malnutrition") %>%
+  kable_styling(full_width = FALSE)
 
 ```
 
+- Elgeyo Marakwet County, Kericho County, and Lamu County each have the highest number of missing values in the "Acute Malnutrition" column, with 30 missing values each.
 
-The presence of missing values in the dataset could carry various implications depending on the specific county. For instance, in certain counties, these missing values might indicate that no observation was recorded or that the actual count was zero. As stated earlier, some counties exhibited missing values across all months, suggesting a complete absence of data for those particular counties. We then decided to drop the column "acute malnutrition".
+- These counties lack data on Acute Malnutrition across the 30-month period from January 2021 to June 2023.
+Uasin Gishu County, Nyandarua County, Bomet County, Kisii County, Nyamira County, and Kirinyaga County also have a substantial number of missing values, ranging from 20 to 30.
+
+- Counties like Samburu, Kitui, Trans Nzoia, Kakamega, Muranga, Tharaka Nithi, Baringo, Kilifi, Embu, and Laikipia have relatively fewer missing values, ranging from 1 to 6.
 
 
+From this missing value observation, the presence of missing values in the dataset could carry various implications depending on the specific county. For instance, in certain counties, these missing values might indicate that no observation was recorded or that the actual count was zero. This suggests the complete absence of data for those particular counties. Therefore, dropping the missing values in the "Acute Malnutrition" column is the best approach for handling missing values since imputing them with measures like mean, median, or mode for this counties has been deemed impractical.
 
 ```{r}
 
-# Dropping Acute Malnutrition column
-combined_data1 <- combined_data %>%
-  dplyr::select(-acute_malnutrition) # we are unselecting the column using the minus sign infront of the column name
-
+# Drop all rows with missing values in the entire dataset
+cleaned_data <- na.omit(data)
+missing_values <- sum(is.na(cleaned_data))
+missing_values
 
 ```
 
+All the missing values in the dataset have been successfully handled.
 
+```{r}
+# Calculate annual averages for selected columns
+annual_averages <- cleaned_data %>%
+  
+  # Extract the year from the 'period' column
+  mutate(year = str_sub(period, 1, 4)) %>%
 
-## Descriptive Statistics
+  # Group the data by year
+  group_by(year) %>%
 
-Table \@ref(tab:table3) represents the descriptive statistics of the first four continuous variables in the data. We can see that among the three health syndromes or conditions, diarrhea has the highest number of cases (>2500) per year. Of the three years, 2023 had the highest number of health syndromes or conditions reported, and equally the highest number of children <5 years who were dewormed.
+  # Calculate the mean (average) for each column of interest
+  summarise(
+    mean_dewormed = mean(total_dewormed),  # Updated column name
+    mean_diarrhoea = mean(diarrhoea_cases), 
+    mean_stunted = mean(stunted),
+    mean_underweight = mean(underweight)
+  ) %>%
 
-```{r table3}
+  # Round the mean values to integers
+  mutate(across(contains("mean"), round))
+
+# Convert annual_averages to a dataframe
+annual_averages_df <- as.data.frame(annual_averages)
+
+# Rename the columns for better clarity
+colnames(annual_averages_df) <- c("Year", "Dewormed", "Diarrhea", "Stunted", "Underweight")
+
+# Print the resulting dataframe
+annual_averages_df
+
+```
+
+The annual averages for children under 5 years in Kenya between 2021 and 2023 reveal important insights into child health and well-being.
+- In 2021, an average of 11,534 children were dewormed annually, while 2,807 cases of diarrhea were reported. Additionally, 496 children were found to be stunted, indicating growth issues, and 1,102 were underweight. 
+
+- In 2022, the number of children dewormed increased to 13,808, with 3,044 cases of diarrhea, 628 stunted children, and 1,427 underweight children. 
+
+- By 2023, the annual averages continued to rise, with 13,898 children dewormed, 3,557 cases of diarrhea, 831 stunted children, and 1,869 underweight children. These statistics underscore the ongoing efforts to address child health challenges in Kenya and highlight areas where further interventions may be needed.
+
+```{r descriptive statistics}
 
 descriptive_stats1 <- combined_data1 %>%
   mutate(year=str_sub(period, 1,4)) %>% # create a column with the period rounded off to a year
@@ -170,8 +246,6 @@ descriptive_stats1 %>%
   kable(digits = 2, caption = "Annual average number of cases reported and treatment administered among children <5 years in Kenya between 2021 to 2023", col.names = c("Year", "Dewormed", "Diarrhea", "Stunted", "Underweight"))
 
 ```
-
-
 \newpage
 
 # Data Visualization
@@ -317,7 +391,8 @@ But first, we need to include the population data to be able to calculate the co
 
 ```{r}
 # We will include the 2019 Kenya census data which has an R package
-install.packages("rKenyaCensus")
+install.packages("remotes")
+remotes::install_github("Shelmith-Kariuki/rKenyaCensus")
 
 library(rKenyaCensus)
 population <- V3_T2.3 %>%
